@@ -1,0 +1,109 @@
+from tensorflow.compat.v1 import ConfigProto
+from tensorflow.compat.v1 import InteractiveSession
+
+config = ConfigProto()
+config.gpu_options.per_process_gpu_memory_fraction = 0.9
+config.gpu_options.allow_growth = True
+session = InteractiveSession(config=config)
+
+---------------------------------------------------------------------------------------------
+import tensorflow as tf
+tf.__version__
+
+---------------------------------------------------------------------------------------------
+import os
+import random
+import shutil
+import pandas as pd
+from PIL import Image
+
+# Set the path to the dataset folder
+dataset_folder = 'dataset_banana'
+
+# Set the percentage of images to use for training
+train_percentage = 0.8
+
+# Get the list of class folders in the dataset folder
+class_folders = os.listdir(dataset_folder)
+
+# Create the train and test directories
+train_dir = os.path.join(dataset_folder, 'train')
+test_dir = os.path.join(dataset_folder, 'test')
+os.makedirs(train_dir, exist_ok=True)
+os.makedirs(test_dir, exist_ok=True)
+
+# Randomly split the images into train and test directories
+for class_folder in class_folders:
+    class_images = os.listdir(os.path.join(dataset_folder, class_folder))
+    random.shuffle(class_images)
+    train_count = int(len(class_images) * train_percentage)
+    train_images = class_images[:train_count]
+    test_images = class_images[train_count:]
+    
+    # Move and convert the train images to the train directory
+    for image in train_images:
+        src = os.path.join(dataset_folder, class_folder, image)
+        dst = os.path.join(train_dir, class_folder, image)
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        
+        # Convert GIF images to JPEG
+        if image.endswith('.gif'):
+            im = Image.open(src)
+            im.convert('RGB').save(dst.replace('.gif', '.jpg'), 'JPEG')
+        else:
+            shutil.copyfile(src, dst)
+    
+    # Move and convert the test images to the test directory
+    for image in test_images:
+        src = os.path.join(dataset_folder, class_folder, image)
+        dst = os.path.join(test_dir, class_folder, image)
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        
+        # Convert GIF images to JPEG
+        if image.endswith('.gif'):
+            im = Image.open(src)
+            im.convert('RGB').save(dst.replace('.gif', '.jpg'), 'JPEG')
+        else:
+            shutil.copyfile(src, dst)
+
+---------------------------------------------------------------------------------------------
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+
+# Operasi pra proses data training
+train_datagen = ImageDataGenerator(rescale = 1./255,
+                                   shear_range = 0.2,
+                                   zoom_range = 0.2,
+                                   horizontal_flip = True)
+
+# Operasi pra proses data testing
+test_datagen = ImageDataGenerator(rescale = 1./255)
+
+# Load Data training
+training_set = train_datagen.flow_from_directory('dataset_banana/train',
+                                                 target_size = (64, 64),
+                                                 batch_size = 32,
+                                                 class_mode = 'binary')
+
+# Load Data testing
+test_set = test_datagen.flow_from_directory('dataset_banana/test',
+                                            target_size = (64, 64),
+                                            batch_size = 32,
+                                            class_mode = 'binary')
+
+---------------------------------------------------------------------------------------------
+
+The code snippet you provided shows a part of the data preprocessing step using the ImageDataGenerator class from Keras' preprocessing.image module. This technique is commonly used to augment and enhance the training dataset by applying various transformations to the images.
+
+Here's a breakdown of the preprocessing steps:
+
+    Rescaling: The rescale parameter is set to 1./255, which means that the pixel values of the images will be scaled down by dividing them by 255. This step normalizes the pixel values to the range of 0 to 1, which can help improve the training process.
+
+    Shear Range: The shear_range parameter is set to 0.2. Shearing is a transformation that shifts the position of pixels in a certain direction, causing the image to be distorted. By applying a random shear transformation within the specified range, the model becomes more robust to variations in object orientations.
+
+    Zoom Range: The zoom_range parameter is set to 0.2. This allows random zooming in or out of the images within the specified range. It helps the model to learn to recognize objects from different scales and perspectives.
+
+    Horizontal Flip: The horizontal_flip parameter is set to True. This randomly flips the images horizontally, effectively doubling the size of the training dataset and adding diversity to the training examples. It helps the model to learn features that are invariant to horizontal flips.
+
+By combining these preprocessing techniques, the training dataset is enriched with augmented images that exhibit different transformations and variations. This augmentation can improve the model's ability to generalize and perform better on unseen data.
+
+After defining the train_datagen object with these preprocessing settings, you can use it to generate augmented training batches from the original images during the model training process.
